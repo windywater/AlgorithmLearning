@@ -4,6 +4,7 @@
 #include <unordered_set>
 #include <vector>
 #include <queue>
+#include <string>
 
 using namespace std;
 
@@ -17,8 +18,9 @@ struct Neighbour
 	int left;
 };
 
+// 邻接表，-1表示没有邻接
 Neighbour adjacentTable[PLATE_COUNT] = {
-	{ -1, 1, 3 - 1 },	// 0
+	{ -1, 1, 3, -1 },	// 0
 	{ -1, 2, 4, 0 },		// 1
 	{ -1, -1, 5, 1 },	// 2
 	{ 0, 4, 6, -1 },		// 3
@@ -32,8 +34,8 @@ Neighbour adjacentTable[PLATE_COUNT] = {
 struct PlateState
 {
 	int plates[PLATE_COUNT];
-	int blankIndex;
-	vector<int> steps;
+	int blankIndex;	// 空白板块的序号
+	vector<int> steps;	// 移动的步骤
 
 	PlateState()
 	{
@@ -53,7 +55,11 @@ struct PlateState
 
 	inline size_t hashValue() const
 	{
-		return plates[0]*1000 + plates[1]*100 + plates[2]*10+plates[3] + plates[6]*10000;
+		string str;
+		for (int i = 0; i < PLATE_COUNT; i++)
+			str += (char)(plates[i] + '0');
+
+		return std::hash<string>()(str);
 	}
 };
 
@@ -76,11 +82,14 @@ int main(int argc, char* argv[])
 	finalState.blankIndex = 8;
 
 	PlateState startState;
-	int startValues[9] = { 1, 2, 3, 4, 5, 6, 8, 7, 0 };
+	//int startValues[9] = { 1, 2, 3, 4, 5, 6, 8, 7, 0 };	// no solution
+	int startValues[9] = { 8, 1, 7, 5, 3, 6, 2, 4, 0 };
 	memcpy(startState.plates, startValues, sizeof(int)*PLATE_COUNT);
 	startState.blankIndex = 8;
 
 	bool finished = false;
+	int pushCount = 0;
+	int popCount = 0;
 
 	queue<PlateState> plateQueue;
 	plateQueue.push(startState);
@@ -98,6 +107,7 @@ int main(int argc, char* argv[])
 		}
 
 		plateQueue.pop();
+		popCount++;
 
 		// 记录出现过的状态，以免后续有重复
 		if (processedStates.find(frontState) != processedStates.end())
@@ -105,61 +115,41 @@ int main(int argc, char* argv[])
 		else
 			processedStates.insert(frontState);
 			
+		// 探测邻接板块，看下一步有哪些可走的状态
 		Neighbour nbr = adjacentTable[frontState.blankIndex];
 
-		// 空白和上邻板块交换
-		if (nbr.up != -1)
+		// 和上、右、下、左相邻板块分别交换
+		int nbrs[4] = { nbr.up, nbr.right, nbr.down, nbr.left };
+		for (int i = 0; i < 4; i++)
 		{
-			PlateState upMoveState = frontState;
-			upMoveState.steps.push_back(upMoveState.plates[nbr.up]);
-			swap(upMoveState.plates[upMoveState.blankIndex], upMoveState.plates[nbr.up]);
-			upMoveState.blankIndex = nbr.up;
-			plateQueue.push(upMoveState);
-		}
-
-		// 空白和右邻板块交换
-		if (nbr.right != -1)
-		{
-			PlateState rightMoveState = frontState;
-			rightMoveState.steps.push_back(rightMoveState.plates[nbr.right]);
-			swap(rightMoveState.plates[rightMoveState.blankIndex], rightMoveState.plates[nbr.right]);
-			rightMoveState.blankIndex = nbr.right;
-			plateQueue.push(rightMoveState);
-		}
-
-		// 空白和下邻板块交换
-		if (nbr.down != -1)
-		{
-			PlateState downMoveState = frontState;
-			downMoveState.steps.push_back(downMoveState.plates[nbr.down]);
-			swap(downMoveState.plates[downMoveState.blankIndex], downMoveState.plates[nbr.down]);
-			downMoveState.blankIndex = nbr.down;
-			plateQueue.push(downMoveState);
-		}
-
-		// 空白和左邻板块交换
-		if (nbr.left != -1)
-		{
-			PlateState leftMoveState = frontState;
-			leftMoveState.steps.push_back(leftMoveState.plates[nbr.left]);
-			swap(leftMoveState.plates[leftMoveState.blankIndex], leftMoveState.plates[nbr.left]);
-			leftMoveState.blankIndex = nbr.left;
-			plateQueue.push(leftMoveState);
+			int nbrIndex = nbrs[i];
+			if (nbrIndex != -1)
+			{
+				PlateState moveState = frontState;
+				moveState.steps.push_back(moveState.plates[nbrIndex]);
+				swap(moveState.plates[moveState.blankIndex], moveState.plates[nbrIndex]);
+				moveState.blankIndex = nbrIndex;
+				plateQueue.push(moveState);
+				pushCount++;
+			}
 		}
 	}
 
 	if (finished)
 	{
-		cout << "Solution: " << endl;
+		cout << "Push count: " << pushCount << endl;
+		cout << "Pop count: " << popCount << endl;
+		cout << "Total steps: " << frontState.steps.size() << endl;
+
 		for (size_t i = 0; i < frontState.steps.size(); i++)
-		{
 			cout << frontState.steps.at(i) << endl;
-		}
 	}
 	else
 	{
 		cout << "No solution." << endl;
 	}
+
+	system("pause");
 
 	return 0;
 }
